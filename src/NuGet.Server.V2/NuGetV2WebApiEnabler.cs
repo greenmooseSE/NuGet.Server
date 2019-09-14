@@ -104,10 +104,10 @@ namespace NuGet.Server.V2
             return config;
         }
 
-        public static IServerPackageRepository CreatePackageRepository(string packagePath, ISettingsProvider settingsProvider=null, NuGet.Server.Core.Logging.ILogger logger=null)
+        public static IServerPackageRepository CreatePackageRepository(string packagePath, ISettingsProvider settingsProvider=null)
         {
             var hashProvider = new CryptoHashProvider(Core.Constants.HashAlgorithm);
-            return new ServerPackageRepository(packagePath, hashProvider, settingsProvider, logger);          
+            return new ServerPackageRepository(packagePath, hashProvider, settingsProvider);          
         }
 
         internal static IEdmModel BuildNuGetODataModel()

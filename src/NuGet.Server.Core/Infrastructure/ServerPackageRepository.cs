@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using NuGet.Server.Core.Logging;
+using NLog;
 
 namespace NuGet.Server.Core.Infrastructure
 {
@@ -25,7 +25,8 @@ namespace NuGet.Server.Core.Infrastructure
 
         private readonly IFileSystem _fileSystem;
         private readonly IServerPackageStore _serverPackageStore;
-        private readonly Logging.ILogger _logger;
+        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
+
         private readonly ISettingsProvider _settingsProvider;
 
         private readonly IServerPackageCache _serverPackageCache;
@@ -42,8 +43,7 @@ namespace NuGet.Server.Core.Infrastructure
         public ServerPackageRepository(
             string path,
             IHashProvider hashProvider,
-            ISettingsProvider settingsProvider = null,
-            Logging.ILogger logger = null)
+            ISettingsProvider settingsProvider = null)
         {
             if (string.IsNullOrEmpty(path))
             {
@@ -58,20 +58,17 @@ namespace NuGet.Server.Core.Infrastructure
             _fileSystem = new PhysicalFileSystem(path);
             _runBackgroundTasks = true;
             _settingsProvider = settingsProvider ?? new DefaultSettingsProvider();
-            _logger = logger ?? new TraceLogger();
             _serverPackageCache = InitializeServerPackageCache();
             _serverPackageStore = new ServerPackageStore(
                 _fileSystem,
-                new ExpandedPackageRepository(_fileSystem, hashProvider),
-                _logger);
+                new ExpandedPackageRepository(_fileSystem, hashProvider));
         }
 
         internal ServerPackageRepository(
             IFileSystem fileSystem,
             bool runBackgroundTasks,
             ExpandedPackageRepository innerRepository,
-            ISettingsProvider settingsProvider = null,
-            Logging.ILogger logger = null)
+            ISettingsProvider settingsProvider = null)
         {
             if (innerRepository == null)
             {
@@ -81,12 +78,10 @@ namespace NuGet.Server.Core.Infrastructure
             _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
             _runBackgroundTasks = runBackgroundTasks;
             _settingsProvider = settingsProvider ?? new DefaultSettingsProvider();
-            _logger = logger ?? new TraceLogger();
             _serverPackageCache = InitializeServerPackageCache();
             _serverPackageStore = new ServerPackageStore(
                 _fileSystem,
-                innerRepository,
-                _logger);
+                innerRepository);
         }
 
         public string Source => _fileSystem.Root;
@@ -157,7 +152,7 @@ namespace NuGet.Server.Core.Infrastructure
             {
                 var message = string.Format(Strings.Error_InvalidCacheFileName, fileName);
 
-                _logger.Log(LogLevel.Error, message);
+                _logger.Error(message);
 
                 throw new InvalidOperationException(message);
             }
@@ -296,7 +291,7 @@ namespace NuGet.Server.Core.Infrastructure
         /// </summary>
         private void AddPackagesFromDropFolderWithoutLocking()
         {
-            _logger.Log(LogLevel.Info, "Start adding packages from drop folder.");
+            _logger.Debug("Start adding packages from drop folder.");
 
             try
             {
@@ -328,12 +323,12 @@ namespace NuGet.Server.Core.Infrastructure
                     catch (UnauthorizedAccessException ex)
                     {
                         // The file may be in use (still being copied) - ignore the error
-                        _logger.Log(LogLevel.Error, "Error adding package file {0} from drop folder: {1}", packageFile, ex.Message);
+                        _logger.Error("Error adding package file {0} from drop folder: {1}", packageFile, ex.Message);
                     }
                     catch (IOException ex)
                     {
                         // The file may be in use (still being copied) - ignore the error
-                        _logger.Log(LogLevel.Error, "Error adding package file {0} from drop folder: {1}", packageFile, ex.Message);
+                        _logger.Error("Error adding package file {0} from drop folder: {1}", packageFile, ex.Message);
                     }
                 }
 
@@ -341,7 +336,7 @@ namespace NuGet.Server.Core.Infrastructure
                 _serverPackageCache.AddRange(serverPackages, EnableDelisting);
                 _serverPackageCache.PersistIfDirty();
 
-                _logger.Log(LogLevel.Info, "Finished adding packages from drop folder.");
+                _logger.Debug("Finished adding packages from drop folder.");
             }
             finally
             {
@@ -354,7 +349,7 @@ namespace NuGet.Server.Core.Infrastructure
         /// </summary>
         public async Task AddPackageAsync(IPackage package, CancellationToken token)
         {
-            _logger.Log(LogLevel.Info, "Start adding package {0} {1}.", package.Id, package.Version);
+            _logger.Info("Start adding package {0} {1}.", package.Id, package.Version);
 
             using (await LockAndSuppressFileSystemWatcherAsync(token))
             {
@@ -370,7 +365,7 @@ namespace NuGet.Server.Core.Infrastructure
                 // Add the package to the metadata store.
                 _serverPackageCache.Add(serverPackage, EnableDelisting);
 
-                _logger.Log(LogLevel.Info, "Finished adding package {0} {1}.", package.Id, package.Version);
+                _logger.Info("Finished adding package {0} {1}.", package.Id, package.Version);
             }
         }
 
@@ -380,7 +375,7 @@ namespace NuGet.Server.Core.Infrastructure
             {
                 var message = string.Format(Strings.Error_SymbolsPackagesIgnored, package);
 
-                _logger.Log(LogLevel.Error, message);
+                _logger.Error(message);
 
                 if (shouldThrow)
                 {
@@ -396,7 +391,7 @@ namespace NuGet.Server.Core.Infrastructure
             {
                 var message = string.Format(Strings.Error_PackageAlreadyExists, package);
 
-                _logger.Log(LogLevel.Error, message);
+                _logger.Error(message);
 
                 if (shouldThrow)
                 {
@@ -414,13 +409,13 @@ namespace NuGet.Server.Core.Infrastructure
         /// </summary>
         public async Task RemovePackageAsync(string id, SemanticVersion version, CancellationToken token)
         {
-            _logger.Log(LogLevel.Info, "Start removing package {0} {1}.", id, version);
+            _logger.Info("Start removing package {0} {1}.", id, version);
 
             var package = await this.FindPackageAsync(id, version, token);
 
             if (package == null)
             {
-                _logger.Log(LogLevel.Info, "No-op when removing package {0} {1} because it doesn't exist.", id, version);
+                _logger.Info("No-op when removing package {0} {1} because it doesn't exist.", id, version);
                 return;
             }
 
@@ -434,12 +429,12 @@ namespace NuGet.Server.Core.Infrastructure
 
                 if (EnableDelisting)
                 {
-                    _logger.Log(LogLevel.Info, "Unlisted package {0} {1}.", package.Id, package.Version);
+                    _logger.Info("Unlisted package {0} {1}.", package.Id, package.Version);
                 }
                 else
                 {
 
-                    _logger.Log(LogLevel.Info, "Finished removing package {0} {1}.", package.Id, package.Version);
+                    _logger.Info("Finished removing package {0} {1}.", package.Id, package.Version);
                 }
             }
         }
@@ -480,7 +475,7 @@ namespace NuGet.Server.Core.Infrastructure
             }
             catch (Exception exception)
             {
-                _logger.Log(LogLevel.Error, "An exception occurred while rebuilding the package store: {0}", exception);
+                _logger.Error("An exception occurred while rebuilding the package store: {0}", exception);
             }
         }
 
@@ -489,7 +484,7 @@ namespace NuGet.Server.Core.Infrastructure
         /// </summary>
         private async Task RebuildPackageStoreWithoutLockingAsync(CancellationToken token)
         {
-            _logger.Log(LogLevel.Info, "Start rebuilding package store...");
+            _logger.Debug("Start rebuilding package store...");
 
             // Build cache
             var packages = await ReadPackagesFromDiskWithoutLockingAsync(token);
@@ -504,7 +499,7 @@ namespace NuGet.Server.Core.Infrastructure
 
             _needsRebuild = false;
 
-            _logger.Log(LogLevel.Info, "Finished rebuilding package store.");
+            _logger.Debug("Finished rebuilding package store.");
         }
 
         /// <summary>
@@ -515,23 +510,20 @@ namespace NuGet.Server.Core.Infrastructure
         /// </summary>
         private async Task<HashSet<ServerPackage>> ReadPackagesFromDiskWithoutLockingAsync(CancellationToken token)
         {
-            _logger.Log(LogLevel.Info, "Start reading packages from disk...");
+            _logger.Debug("Start reading packages from disk...");
 
             try
             {
                 var packages = await _serverPackageStore.GetAllAsync(EnableDelisting, token);
 
-                _logger.Log(LogLevel.Info, "Finished reading packages from disk.");
+                _logger.Debug("Finished reading packages from disk.");
 
                 return packages;
             }
             catch (Exception ex)
             {
-                _logger.Log(
-                    LogLevel.Error,
-                    "Error while reading packages from disk: {0} {1}",
-                    ex.Message,
-                    ex.StackTrace);
+                _logger.Error(ex,
+                    "Error while reading packages from disk");
 
                 throw;
             }
@@ -549,16 +541,16 @@ namespace NuGet.Server.Core.Infrastructure
                 _serverPackageCache.Clear();
                 _serverPackageCache.Persist();
                 _needsRebuild = true;
-                _logger.Log(LogLevel.Info, "Cleared package cache.");
+                _logger.Debug("Cleared package cache.");
             }
         }
 
         private void SetupBackgroundJobs()
         {
-            _logger.Log(LogLevel.Info, "Registering background jobs...");
+            _logger.Debug("Registering background jobs...");
 
             // Persist to package store at given interval (when dirty)
-            _logger.Log(LogLevel.Info, "Persisting the cache file every 1 minute.");
+            _logger.Debug("Persisting the cache file every 1 minute.");
             _persistenceTimer = new Timer(
                 callback: state => _serverPackageCache.PersistIfDirty(),
                 state: null,
@@ -566,15 +558,15 @@ namespace NuGet.Server.Core.Infrastructure
                 period: TimeSpan.FromMinutes(1));
 
             // Rebuild the package store in the background
-            _logger.Log(LogLevel.Info, "Rebuilding the cache file for the first time after {0} second(s).", InitialCacheRebuildAfter.TotalSeconds);
-            _logger.Log(LogLevel.Info, "Rebuilding the cache file every {0} hour(s).", CacheRebuildFrequency.TotalHours);
+            _logger.Debug("Rebuilding the cache file for the first time after {0} second(s).", InitialCacheRebuildAfter.TotalSeconds);
+            _logger.Debug("Rebuilding the cache file every {0} hour(s).", CacheRebuildFrequency.TotalHours);
             _rebuildTimer = new Timer(
                 callback: state => RebuildPackageStoreAsync(CancellationToken.None),
                 state: null,
                 dueTime: InitialCacheRebuildAfter,
                 period: CacheRebuildFrequency);
 
-            _logger.Log(LogLevel.Info, "Finished registering background jobs.");
+            _logger.Debug("Finished registering background jobs.");
         }
 
         /// <summary>
@@ -602,7 +594,7 @@ namespace NuGet.Server.Core.Infrastructure
 
                 _fileSystemWatcher.EnableRaisingEvents = true;
 
-                _logger.Log(LogLevel.Verbose, "Created FileSystemWatcher - monitoring {0}.", Source);
+                _logger.Trace("Created FileSystemWatcher - monitoring {0}.", Source);
             }
         }
 
@@ -621,7 +613,7 @@ namespace NuGet.Server.Core.Infrastructure
                 _fileSystemWatcher.Dispose();
                 _fileSystemWatcher = null;
 
-                _logger.Log(LogLevel.Verbose, "Destroyed FileSystemWatcher - no longer monitoring {0}.", Source);
+                _logger.Trace("Destroyed FileSystemWatcher - no longer monitoring {0}.", Source);
             }
 
             _watchDirectory = null;
@@ -641,11 +633,11 @@ namespace NuGet.Server.Core.Infrastructure
 
                 if (ShouldIgnoreFileSystemEvent(e))
                 {
-                    _logger.Log(LogLevel.Verbose, "File system event ignored. File: {0} - Change: {1}", e.Name, e.ChangeType);
+                    _logger.Trace("File system event ignored. File: {0} - Change: {1}", e.Name, e.ChangeType);
                     return;
                 }
 
-                _logger.Log(LogLevel.Verbose, "File system changed. File: {0} - Change: {1}", e.Name, e.ChangeType);
+                _logger.Trace("File system changed. File: {0} - Change: {1}", e.Name, e.ChangeType);
 
                 var changedDirectory = Path.GetDirectoryName(e.FullPath);
                 if (changedDirectory == null || _watchDirectory == null)
@@ -675,7 +667,7 @@ namespace NuGet.Server.Core.Infrastructure
             }
             catch (Exception exception)
             {
-                _logger.Log(LogLevel.Error, "An exception occurred while handling a file system event: {0}", exception);
+                _logger.Error(exception, "An exception occurred while handling a file system event.");
             }
         }
 
@@ -686,7 +678,7 @@ namespace NuGet.Server.Core.Infrastructure
             if (e.ChangeType != WatcherChangeTypes.Created
                 && e.ChangeType != WatcherChangeTypes.Changed)
             {
-                _logger.Log(LogLevel.Verbose, "The file system event change type is not ignorable.");
+                _logger.Trace("The file system event change type is not ignorable.");
                 return false;
             }
 
@@ -697,7 +689,7 @@ namespace NuGet.Server.Core.Infrastructure
             /// window has ended.
             if (!KnownPathUtility.TryParseFileName(e.Name, out var id, out var version))
             {
-                _logger.Log(LogLevel.Verbose, "The file system event is not related to a known package path.");
+                _logger.Trace("The file system event is not related to a known package path.");
                 return false;
             }
 
@@ -711,21 +703,21 @@ namespace NuGet.Server.Core.Infrastructure
 
             if (matchingPackage == null)
             {
-                _logger.Log(LogLevel.Verbose, "The file system event is not related to a known package.");
+                _logger.Trace("The file system event is not related to a known package.");
                 return false;
             }
 
             var fileInfo = new FileInfo(e.FullPath);
             if (!fileInfo.Exists)
             {
-                _logger.Log(LogLevel.Verbose, "The package file is missing.");
+                _logger.Trace("The package file is missing.");
                 return false;
             }
 
             var minimumCreationTime = DateTimeOffset.UtcNow.AddMinutes(-1);
             if (fileInfo.CreationTimeUtc < minimumCreationTime)
             {
-                _logger.Log(LogLevel.Verbose, "The package file was not created recently.");
+                _logger.Trace("The package file was not created recently.");
                 return false;
             }
 

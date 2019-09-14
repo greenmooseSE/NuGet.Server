@@ -7,10 +7,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Http;
 using NuGet.Server.Core.Infrastructure;
+using NuGet.Server.Infrastructure;
 using NuGet.Server.V2.Controllers;
 
 namespace NuGet.Server.DataServices
 {
+    [LogAction]
     public class PackagesODataController : NuGetODataController
     {
         public PackagesODataController()

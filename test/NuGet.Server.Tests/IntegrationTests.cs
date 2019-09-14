@@ -10,19 +10,21 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Http;
 using System.Web.Http.Dependencies;
+using NLog;
+using NLog.Common;
+using NLog.Config;
+using NLog.Targets;
 using NuGet.Server.App_Start;
-using NuGet.Server.Core.Infrastructure;
-using NuGet.Server.Core.Logging;
 using NuGet.Server.Core.Tests;
 using NuGet.Server.Core.Tests.Infrastructure;
 using NuGet.Server.V2;
 using Xunit;
 using Xunit.Abstractions;
 using ISystemDependencyResolver = System.Web.Http.Dependencies.IDependencyResolver;
+using LogLevel = NLog.LogLevel;
 using SystemHttpClient = System.Net.Http.HttpClient;
 
 namespace NuGet.Server.Tests
@@ -268,7 +270,7 @@ namespace NuGet.Server.Tests
                 packagePaths.TryTake(out var firstPackagePath);
                 await tc.PushPackageAsync(apiKey, firstPackagePath);
 
-                Assert.Single(tc.Logger.Messages, "[INFO] Start rebuilding package store...");
+                Assert.Single(tc.Logger.Messages.Where(msg => msg.Contains("Start rebuilding package store...")));
                 tc.Logger.Clear();
                 tc.TestOutputHelper.WriteLine("The first package has been pushed.");
 
@@ -282,7 +284,7 @@ namespace NuGet.Server.Tests
                     Assert.Equal(1, int.Parse(content));
                 }
 
-                Assert.DoesNotContain("[INFO] Start rebuilding package store...", tc.Logger.Messages);
+                Assert.DoesNotContain("[DEBUG] Start rebuilding package store...", tc.Logger.Messages);
                 tc.TestOutputHelper.WriteLine("The first count query has completed.");
 
                 // 3. Push the rest of the packages.
@@ -310,7 +312,7 @@ namespace NuGet.Server.Tests
                     Assert.Equal(totalPackages, int.Parse(content));
                 }
 
-                Assert.DoesNotContain("[INFO] Start rebuilding package store...", tc.Logger.Messages);
+                Assert.DoesNotContain("[DEBUG] Start rebuilding package store...", tc.Logger.Messages);
                 tc.TestOutputHelper.WriteLine("The second count query has completed.");
             }
         }
@@ -421,11 +423,26 @@ namespace NuGet.Server.Tests
         private sealed class TestContext : IDisposable
         {
             private readonly HttpServer _server;
+            private static readonly TestOutputLogger _nlogTarget = new TestOutputLogger {Name = "testLoggerTarget"};
+
+            static TestContext()
+            {
+                var nlogConfig = new LoggingConfiguration();
+                InternalLogger.Reset();
+
+
+                nlogConfig.AddRuleForAllLevels(
+                    _nlogTarget);
+                nlogConfig.AddRuleForAllLevels(
+                    new ColoredConsoleTarget("console"));
+                InternalLogger.LogToConsole = true;
+                InternalLogger.LogLevel = LogLevel.Warn;
+                LogManager.Configuration = nlogConfig;
+            }
 
             public TestContext(ITestOutputHelper output)
             {
                 TestOutputHelper = output;
-                Logger = new TestOutputLogger(output);
                 TemporaryDirectory = new TemporaryDirectory();
                 PackagesDirectory = new TemporaryDirectory();
 
@@ -435,13 +452,14 @@ namespace NuGet.Server.Tests
                     { "apiKey", string.Empty }
                 };
 
-                ServiceResolver = new DefaultServiceResolver(PackagesDirectory, Settings, Logger);
+                ServiceResolver = new DefaultServiceResolver(PackagesDirectory, Settings);
 
                 Config = new HttpConfiguration();
                 Config.IncludeErrorDetailPolicy = IncludeErrorDetailPolicy.Always;
                 Config.DependencyResolver = new DependencyResolverAdapter(ServiceResolver);
 
-                NuGetODataConfig.Initialize(Config, TestablePackagesODataController.Name);
+                
+                NuGetODataConfig.Initialize(Config, TestablePackagesODataController.Name, false);
 
                 _server = new HttpServer(Config);
                 Client = new SystemHttpClient(_server);
@@ -449,7 +467,7 @@ namespace NuGet.Server.Tests
             }
 
             public ITestOutputHelper TestOutputHelper { get; }
-            public TestOutputLogger Logger { get; }
+            public TestOutputLogger Logger { get; } = _nlogTarget;
             public DefaultServiceResolver ServiceResolver { get; }
             public TemporaryDirectory TemporaryDirectory { get; }
             public TemporaryDirectory PackagesDirectory { get; }

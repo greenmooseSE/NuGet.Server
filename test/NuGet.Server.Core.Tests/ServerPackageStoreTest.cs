@@ -27,11 +27,10 @@ namespace NuGet.Server.Core.Tests
             {
                 var fileSystem = new PhysicalFileSystem(directory);
                 var repository = new ExpandedPackageRepository(fileSystem);
-                var logger = new Infrastructure.NullLogger();
 
                 repository.AddPackage(CreatePackage(PackageId, PackageVersion));
 
-                var target = new ServerPackageStore(fileSystem, repository, logger);
+                var target = new ServerPackageStore(fileSystem, repository);
 
                 // Act
                 target.Remove(PackageId, PackageVersion, enableDelisting: true);
@@ -57,11 +56,10 @@ namespace NuGet.Server.Core.Tests
             {
                 var fileSystem = new PhysicalFileSystem(directory);
                 var repository = new ExpandedPackageRepository(fileSystem);
-                var logger = new Infrastructure.NullLogger();
 
                 repository.AddPackage(CreatePackage(PackageId, PackageVersion));
 
-                var target = new ServerPackageStore(fileSystem, repository, logger);
+                var target = new ServerPackageStore(fileSystem, repository);
 
                 // Act
                 target.Remove(PackageId, PackageVersion, enableDelisting: false);
@@ -80,11 +78,10 @@ namespace NuGet.Server.Core.Tests
             {
                 var fileSystem = new PhysicalFileSystem(directory);
                 var repository = new ExpandedPackageRepository(fileSystem);
-                var logger = new Infrastructure.NullLogger();
 
                 repository.AddPackage(CreatePackage(PackageId, PackageVersion));
 
-                var target = new ServerPackageStore(fileSystem, repository, logger);
+                var target = new ServerPackageStore(fileSystem, repository);
 
                 // Act
                 target.Remove("Foo", PackageVersion, enableDelisting: false);

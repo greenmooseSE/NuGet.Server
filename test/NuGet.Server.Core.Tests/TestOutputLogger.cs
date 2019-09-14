@@ -3,19 +3,26 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using NuGet.Server.Core.Logging;
+using NLog;
+using NLog.Targets;
 using Xunit.Abstractions;
 
 namespace NuGet.Server.Core.Tests
 {
-    public class TestOutputLogger : Logging.ILogger
+    public class TestOutputLogger : TargetWithLayout
     {
-        private readonly ITestOutputHelper _output;
         private ConcurrentQueue<string> _messages;
 
-        public TestOutputLogger(ITestOutputHelper output)
+        protected override void Write(LogEventInfo logEvent)
         {
-            _output = output;
+            string logMessage = Layout.Render(logEvent);
+
+            var formattedMessage = $"[{logEvent.Level.ToString().Substring(0, 4).ToUpperInvariant()}] {logMessage}";
+            _messages.Enqueue(formattedMessage);
+        }
+
+        public TestOutputLogger()
+        {
             _messages = new ConcurrentQueue<string>();
         }
 
@@ -26,11 +33,5 @@ namespace NuGet.Server.Core.Tests
             _messages = new ConcurrentQueue<string>();
         }
 
-        public void Log(LogLevel level, string message, params object[] args)
-        {
-            var formattedMessage = $"[{level.ToString().Substring(0, 4).ToUpperInvariant()}] {string.Format(message, args)}";
-            _messages.Enqueue(formattedMessage);
-            _output.WriteLine(formattedMessage);
-        }
     }
 }

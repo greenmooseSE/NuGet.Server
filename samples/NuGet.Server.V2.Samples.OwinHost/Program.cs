@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Web.Http;
 using Microsoft.Owin.Hosting;
 using NuGet.Server.Core.Infrastructure;
-using NuGet.Server.Core.Logging;
 using Owin;
 
 namespace NuGet.Server.V2.Samples.OwinHost
@@ -31,13 +30,11 @@ namespace NuGet.Server.V2.Samples.OwinHost
             settings.Add("allowOverrideExistingPackageOnPush", true);       //default=true
             var settingsProvider = new DictionarySettingsProvider(settings);
 
-            var logger = new ConsoleLogger();
-
             //Sets up three repositories with seperate packages in each feed. These repositories are used by our controllers.
             //In a real world application the repositories will probably be inserted through DI framework, or created in the controllers constructor.
-            NuGetPrivateRepository = NuGetV2WebApiEnabler.CreatePackageRepository(@"d:\omnishopcentraldata\Packages\Private", settingsProvider, logger);
-            NuGetPublicRepository = NuGetV2WebApiEnabler.CreatePackageRepository(@"d:\omnishopcentraldata\Packages\Public", settingsProvider, logger);
-            NuGetVeryPublicRepository = NuGetV2WebApiEnabler.CreatePackageRepository(@"d:\omnishopcentraldata\Packages\VeryPublic", settingsProvider, logger);
+            NuGetPrivateRepository = NuGetV2WebApiEnabler.CreatePackageRepository(@"d:\omnishopcentraldata\Packages\Private", settingsProvider);
+            NuGetPublicRepository = NuGetV2WebApiEnabler.CreatePackageRepository(@"d:\omnishopcentraldata\Packages\Public", settingsProvider);
+            NuGetVeryPublicRepository = NuGetV2WebApiEnabler.CreatePackageRepository(@"d:\omnishopcentraldata\Packages\VeryPublic", settingsProvider);
 
             // Start OWIN host, which in turn will create a new instance of Startup class, and execute its Configuration method.
             using (WebApp.Start<Startup>(url: baseAddress))

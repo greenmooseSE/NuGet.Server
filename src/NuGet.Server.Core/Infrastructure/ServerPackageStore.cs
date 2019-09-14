@@ -8,7 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using NuGet.Server.Core.Logging;
+using NLog;
 
 namespace NuGet.Server.Core.Infrastructure
 {
@@ -17,16 +17,14 @@ namespace NuGet.Server.Core.Infrastructure
     {
         private readonly IFileSystem _fileSystem;
         private readonly ExpandedPackageRepository _repository;
-        private readonly Logging.ILogger _logger;
+        private static readonly Logger _logger = LogManager.GetCurrentClassLogger();
 
         public ServerPackageStore(
             IFileSystem fileSystem,
-            ExpandedPackageRepository repository,
-            Logging.ILogger logger)
+            ExpandedPackageRepository repository)
         {
             _fileSystem = fileSystem;
             _repository = repository;
-            _logger = logger;
         }
 
         public bool Exists(string id, SemanticVersion version)
@@ -56,8 +54,7 @@ namespace NuGet.Server.Core.Infrastructure
                     }
                     else
                     {
-                        _logger.Log(
-                            LogLevel.Error,
+                        _logger.Error(
                             "Error removing package {0} {1} - could not find package file {2}",
                             id,
                             version,
@@ -118,8 +115,7 @@ namespace NuGet.Server.Core.Infrastructure
             }
             catch (Exception e)
             {
-                _logger.Log(
-                    LogLevel.Warning,
+                _logger.Warn(
                     "Unable to create server package - {0} {1}: {2}",
                     package.Id,
                     package.Version,

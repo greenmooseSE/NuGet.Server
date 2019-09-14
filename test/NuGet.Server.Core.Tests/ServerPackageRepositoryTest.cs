@@ -34,7 +34,6 @@ namespace NuGet.Server.Core.Tests
                 fileSystem,
                 runBackgroundTasks: false,
                 innerRepository: expandedPackageRepository,
-                logger: new Infrastructure.NullLogger(),
                 settingsProvider: getSetting != null ? new FuncSettingsProvider(getSetting) : null);
 
             await serverRepository.GetPackagesAsync(ClientCompatibility.Max, Token); // caches the files
