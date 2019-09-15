@@ -61,6 +61,9 @@
       <HintPath>..\..\packages\NuGet.Core.2.14.0\lib\net40-Client\NuGet.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="SimpleBasicAuthentication, Version=0.1.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\SimpleBasicAuthenticationModule.0.1\lib\SimpleBasicAuthentication.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Data" />
@@ -129,6 +132,7 @@
     <Compile Include="Properties\AssemblyInfo.*.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="App_Data\UserCredentials.xml" />
     <Content Include="Default.aspx" />
     <Content Include="favicon.ico" />
     <Content Include="Packages\Readme.txt" />
